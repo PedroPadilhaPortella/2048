@@ -1,6 +1,6 @@
 const GRID_SIZE = 4;
-const CELL_SIZE = 20;
-const CELL_GAP = 2;
+const CELL_SIZE = 18;
+const CELL_GAP = 1.6;
 
 function createCellElements(gridElement) {
     const cells = []
@@ -28,6 +28,10 @@ export default class Grid {
                 Math.floor(index / GRID_SIZE)
             );
         });
+    }
+    
+    get cells() {
+        return this.#cells;
     }
 
     get cellsByColumn() {
@@ -102,5 +106,13 @@ class Cell {
 
     canAccept(tile) {
         return (this.tile == null || (this.mergeTile == null && this.tile.value == tile.value));
+    }
+
+    mergeTiles() {
+        if(this.tile == null || this.mergeTile == null) return;
+        this.tile.value += this.mergeTile.value;
+        this.mergeTile.remove();
+        this.mergeTile = null;
+        return +this.tile.value;
     }
 }

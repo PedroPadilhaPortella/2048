@@ -2,6 +2,9 @@ import Grid from './Grid.js';
 import Tile from './Tile.js';
 
 const gameboard = document.getElementById("gameboard");
+const score = document.getElementById("score");
+score.textContent = 0
+
 const grid = new Grid(gameboard);
 
 grid.randomEmptyCell().tile = new Tile(gameboard);
@@ -13,26 +16,61 @@ function setupInput() {
     window.addEventListener('keydown', handleInput, { once: true });
 }
 
-function handleInput(e) {
-    console.log(e.key)
+async function handleInput(e) {
     switch (e.key) {
         case 'ArrowUp':
-            moveUp();
+            if(!canMoveUp()) {
+                setupInput();
+                return;
+            }
+            await moveUp();
             break;
         case 'ArrowDown':
-            moveDown();
+            if(!canMoveDown()) {
+                setupInput();
+                return;
+            }
+            await moveDown();
             break;
         case 'ArrowLeft':
-            moveLeft();
+            if(!canMoveLeft()) {
+                setupInput();
+                return;
+            }
+            await moveLeft();
             break;
         case 'ArrowRight':
-            moveRight();
+            if(!canMoveRight()) {
+                setupInput();
+                return;
+            }
+            await moveRight();
             break;
         default:
             setupInput();
             return;
     }
-    setupInput();
+
+    grid.cells.forEach(cell => {
+        let points = cell.mergeTiles()
+
+        if(points) {
+            let total = Number(score.textContent);
+            total += points;
+            score.textContent = total
+        }
+    });
+
+    const newTile = new Tile(gameboard);
+    grid.randomEmptyCell().tile = newTile;
+
+    if(!canMoveUp() && !canMoveDown() && !canMoveLeft() && !canMoveRight()) {
+        newTile.waitForTransition(true).then(() => {
+            alert(`Game Over, your pontuaction war ${score.textContent}`);
+        });
+    } else {
+        setupInput();
+    }
 }
 
 function moveUp() { 
@@ -52,7 +90,9 @@ function moveRight() {
 }
 
 function slideTiles(cells) {
-    cells.forEach(group => {
+    return Promise.all(
+    cells.flatMap(group => {
+        const  promises = [];
         for (let i = 1; i < group.length; i++) {
             const cell = group[i];
             if(cell.tile == null) continue;
@@ -65,6 +105,7 @@ function slideTiles(cells) {
             }
 
             if(lastValidCell != null) {
+                promises.push(cell.tile.waitForTransition());
                 if(lastValidCell.tile != null) {
                     lastValidCell.mergeTile = cell.tile;
                 } else {
@@ -73,5 +114,36 @@ function slideTiles(cells) {
                 cell.tile = null;
             }
         }
-    });
+        return promises;
+    }));
+}
+
+function canMove(cells) {
+    return cells.some(group => {
+        return group.some((cell, index) => {
+            if(index == 0) return false;
+            if(cell.tile == null) return false;
+            const moveToCell = group[index - 1];
+            return moveToCell.canAccept(cell.tile);
+        })
+    })
+}
+
+function canMoveUp() {
+    return canMove(grid.cellsByColumn);
+}
+
+function canMoveDown() {
+    return canMove(grid.cellsByColumn.map(column => [...column].reverse()));
+    
+}
+
+function canMoveLeft() {
+    return canMove(grid.cellsByRow);
+    
+}
+
+function canMoveRight() {
+    return canMove(grid.cellsByRow.map(column => [...column].reverse()));
+
 }
